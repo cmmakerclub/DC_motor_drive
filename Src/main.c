@@ -34,6 +34,11 @@
 #include "stm32f0xx_hal.h"
 
 /* USER CODE BEGIN Includes */
+#define sen_amp   0.02014160145f
+#define sen_input 0.00732421875f   				//0-30amp
+
+#define Kp   0.02014160145f
+#define Ki   0.00732421875f 
 
 /* USER CODE END Includes */
 
@@ -57,7 +62,7 @@ float ref_control = 0;
 
 float error = 0;
 float error_sum = 0;
-
+float output = 0;
 
 /* USER CODE END PV */
 
@@ -402,19 +407,28 @@ void sampling(void)
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	
 	
-	current = (float)RAW_adc[0]*0.25f +(float)RAW_adc[1]*0.25f +(float)RAW_adc[3]*0.25f +(float)RAW_adc[4]*0.25f +(float)RAW_adc[6]*0.25f +(float)RAW_adc[7]*0.25f;
-	ref_control = (float)RAW_adc[2]*0.5f +(float)RAW_adc[5]*0.5f +(float)RAW_adc[8]*0.5f;
+	current = 3045.0f - ((float)RAW_adc[0]+(float)RAW_adc[1]+(float)RAW_adc[3]+(float)RAW_adc[4]+(float)RAW_adc[6]+(float)RAW_adc[7])*0.166666666667f;
+	ref_control = ((float)RAW_adc[2] +(float)RAW_adc[5] +(float)RAW_adc[8])*0.333333333333f;
 	
-	current *= 0.0002441406f;
-	ref_control *= 0.0002441406f;
+	current *= sen_amp;  				//map raw to amp
+	ref_control *= sen_input;
 	
-	error = 0;
+	error = ref_control - current;
 	
-	error_sum = 0;
+	error_sum += error;
+	if (error_sum > 20.0f) error_sum = 20.0f;
+	if (error_sum < -20.0f) error_sum = -20.0f;
 	
+	output =  Kp*error + Ki*error_sum;
 	
+	if(HAL_GPIO_ReadPin(ENABLE_GPIO_Port, ENABLE_Pin) == GPIO_PIN_SET)
+	{
+		error_sum = 0;
+		output = 0;
+	}
 	
-	motor_drive(3)	;
+	output = 3; 
+	motor_drive(output)	;
 
 	
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
@@ -424,15 +438,15 @@ void motor_drive(float value)	// 0-100 input rank
 {
 	static uint8_t status, value_prev;
 
-	float output = value * 23.0f;
+	float _output = value * 23.0f;
 	
-	if (output < 0) output = -output;
+	if (_output < 0) _output = -_output;
 	
 	if ((value > 0)!=(value_prev > 0)) status = 200;
 	
-	if ((value < 3)&&(value > -3)) output = 0;
+	if ((value < 3)&&(value > -3)) _output = 0;
 	
-	if (output > 2300) output = 2300;
+	if (_output > 2300) _output = 2300;
 	
 	if (status == 0)
 	{
@@ -443,8 +457,8 @@ void motor_drive(float value)	// 0-100 input rank
 			TIM3->CNT = 0;
 			TIM14->CNT = 0;
 			
-			TIM3->CCR1 = output;
-			TIM3->CCR2 = output;
+			TIM3->CCR1 = _output;
+			TIM3->CCR2 = _output;
 		}
 		else
 		{	
@@ -453,8 +467,8 @@ void motor_drive(float value)	// 0-100 input rank
 			TIM3->CNT = 0;
 			TIM14->CNT = 0;
 			
-			TIM3->CCR4 = output;
-			TIM14->CCR1 = output;
+			TIM3->CCR4 = _output;
+			TIM14->CCR1 = _output;
 		}
 	}
 	else
