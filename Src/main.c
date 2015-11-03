@@ -50,6 +50,14 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+uint16_t RAW_adc[9] = {0};
+
+float current = 0;
+float ref_control = 0;
+
+float error = 0;
+float error_sum = 0;
+
 
 /* USER CODE END PV */
 
@@ -67,6 +75,8 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
+void motor_drive(float value);	// 0-100 input rank
+void sampling(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -99,17 +109,38 @@ int main(void)
   MX_USART1_UART_Init();
 
   /* USER CODE BEGIN 2 */
+	HAL_ADC_Start_DMA(&hadc, (uint32_t*)RAW_adc, 9);
+	
+	
+	HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_4);
+	HAL_Delay(100);
+	
+	HAL_TIM_Base_Start_IT(&htim17);
+
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	
+		motor_drive(3);
+		
   while (1)
   {
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
 
+		HAL_Delay(1000);
+//		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+
+//		HAL_Delay(10);
+//		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);	
+		
+		
   }
   /* USER CODE END 3 */
 
@@ -252,7 +283,7 @@ void MX_TIM3_Init(void)
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig);
 
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
@@ -279,7 +310,7 @@ void MX_TIM14_Init(void)
 
   HAL_TIM_PWM_Init(&htim14);
 
-  sConfigOC.OCMode = TIM_OCMODE_PWM2;
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
@@ -294,7 +325,7 @@ void MX_TIM17_Init(void)
   htim17.Instance = TIM17;
   htim17.Init.Prescaler = 47;
   htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim17.Init.Period = 49;
+  htim17.Init.Period = 99;
   htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim17.Init.RepetitionCounter = 0;
   HAL_TIM_Base_Init(&htim17);
@@ -306,7 +337,7 @@ void MX_USART1_UART_Init(void)
 {
 
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 38400;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -328,7 +359,7 @@ void MX_DMA_Init(void)
   __DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 1, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
@@ -366,35 +397,78 @@ void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void motor_drive(float value)
+void sampling(void)
+{
+	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+	
+	
+	current = (float)RAW_adc[0]*0.25f +(float)RAW_adc[1]*0.25f +(float)RAW_adc[3]*0.25f +(float)RAW_adc[4]*0.25f +(float)RAW_adc[6]*0.25f +(float)RAW_adc[7]*0.25f;
+	ref_control = (float)RAW_adc[2]*0.5f +(float)RAW_adc[5]*0.5f +(float)RAW_adc[8]*0.5f;
+	
+	current *= 0.0002441406f;
+	ref_control *= 0.0002441406f;
+	
+	error = 0;
+	
+	error_sum = 0;
+	
+	
+	
+	motor_drive(3)	;
+
+	
+	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+}
+
+void motor_drive(float value)	// 0-100 input rank
 {
 	static uint8_t status, value_prev;
+
+	float output = value * 23.0f;
 	
-	
-	float output = value*0.01*2300;
 	if (output < 0) output = -output;
+	
+	if ((value > 0)!=(value_prev > 0)) status = 200;
+	
 	if ((value < 3)&&(value > -3)) output = 0;
-	if (value > 0)
+	
+	if (output > 2300) output = 2300;
+	
+	if (status == 0)
 	{
-		TIM3->CCR1 = 0;
-		TIM14->CCR1 =	0;
-		TIM3->CCR4 = 0;
-		TIM3->CCR2 = 0;
+		if (value > 0)
+		{
+			TIM3->CCR4 = 0;
+			TIM14->CCR1 =	0;
+			TIM3->CNT = 0;
+			TIM14->CNT = 0;
+			
+			TIM3->CCR1 = output;
+			TIM3->CCR2 = output;
+		}
+		else
+		{	
+			TIM3->CCR1 = 0;
+			TIM3->CCR2 = 0;
+			TIM3->CNT = 0;
+			TIM14->CNT = 0;
+			
+			TIM3->CCR4 = output;
+			TIM14->CCR1 = output;
+		}
 	}
 	else
-	{
+	{		
+		TIM3->CNT = 0;
+		TIM14->CNT = 0;
 		TIM3->CCR4 = 0;
 		TIM3->CCR2 = 0;
 		TIM3->CCR1 = 0;
 		TIM14->CCR1 = 0;
-
+		
+		status--;
 	}
-	
-	
-	
-	
-	
-	
+	value_prev = value;
 }
 /* USER CODE END 4 */
 
@@ -412,6 +486,14 @@ void assert_failed(uint8_t* file, uint32_t line)
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+	
+		TIM3->CNT = 0;
+		TIM14->CNT = 0;
+		TIM3->CCR4 = 0;
+		TIM3->CCR2 = 0;
+		TIM3->CCR1 = 0;
+		TIM14->CCR1 = 0;
+	
   /* USER CODE END 6 */
 
 }
