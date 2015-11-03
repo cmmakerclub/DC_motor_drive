@@ -37,9 +37,8 @@
 #define sen_amp   0.02014160145f
 #define sen_input 0.00732421875f   				//0-30amp
 
-#define Kp   0.02014160145f
-#define Ki   0.00732421875f 
-
+#define Kp   6.25f
+#define Ki   0.0f
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -427,7 +426,7 @@ void sampling(void)
 		output = 0;
 	}
 	
-	output = 3; 
+//	output = -15;   
 	motor_drive(output)	;
 
 	
@@ -436,8 +435,9 @@ void sampling(void)
 
 void motor_drive(float value)	// 0-100 input rank
 {
-	static uint8_t status, value_prev;
-
+	static uint8_t status;
+	static float  value_prev;
+	
 	float _output = value * 23.0f;
 	
 	if (_output < 0) _output = -_output;
