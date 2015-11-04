@@ -398,6 +398,12 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(ENABLE_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : DIR_Pin */
+  GPIO_InitStruct.Pin = DIR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(DIR_GPIO_Port, &GPIO_InitStruct);
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -442,7 +448,7 @@ void sampling(void)
 		output = 0;
 	}
 	
-	if(HAL_GPIO_ReadPin(ENABLE_GPIO_Port, ENABLE_Pin) == GPIO_PIN_RESET)
+	if(HAL_GPIO_ReadPin(DIR_GPIO_Port, DIR_Pin) == GPIO_PIN_SET)
 	{
 		output = -output;
 	}
@@ -476,7 +482,9 @@ void motor_drive(float value)	// 0-100 input rank
 		if (value > 0)
 		{
 			TIM3->CCR4 = 0;
-			TIM14->CCR1 =	0;
+			TIM3->CCR2 = 0;
+			TIM3->CCR1 = 0;
+			TIM14->CCR1 = 0;
 			TIM3->CNT = 0;
 			TIM14->CNT = 0;
 			
@@ -485,8 +493,10 @@ void motor_drive(float value)	// 0-100 input rank
 		}
 		else
 		{	
-			TIM3->CCR1 = 0;
+			TIM3->CCR4 = 0;
 			TIM3->CCR2 = 0;
+			TIM3->CCR1 = 0;
+			TIM14->CCR1 = 0;
 			TIM3->CNT = 0;
 			TIM14->CNT = 0;
 			
@@ -496,12 +506,13 @@ void motor_drive(float value)	// 0-100 input rank
 	}
 	else
 	{		
-		TIM3->CNT = 0;
-		TIM14->CNT = 0;
+
 		TIM3->CCR4 = 0;
 		TIM3->CCR2 = 0;
 		TIM3->CCR1 = 0;
 		TIM14->CCR1 = 0;
+		TIM3->CNT = 0;
+		TIM14->CNT = 0;
 		
 		status--;
 	}

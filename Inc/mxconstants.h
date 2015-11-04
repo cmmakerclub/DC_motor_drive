@@ -52,6 +52,8 @@
 #define ENABLE_GPIO_Port GPIOA
 #define PWM_INPUT_Pin GPIO_PIN_9
 #define PWM_INPUT_GPIO_Port GPIOA
+#define DIR_Pin GPIO_PIN_10
+#define DIR_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
