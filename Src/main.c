@@ -411,10 +411,7 @@ void sampling(void)
 {
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	
-	static uint16_t count;
-	
-	count++;
-	if(count > 40000) count = 0;
+
 	
 	
 	current = 3045.0f - ((float)RAW_adc[0]+(float)RAW_adc[1]+(float)RAW_adc[3]+(float)RAW_adc[4]+(float)RAW_adc[6]+(float)RAW_adc[7])*0.166666666667f;
@@ -423,14 +420,17 @@ void sampling(void)
 	current *= sen_amp;  				//map raw to amp
 	ref_control *= sen_input;
 	
-											if( count < 20000)
-											{
-												ref_control = 0.3f;
-											}
-											else
-											{
-												ref_control = 0.7f;
-											}
+//	static uint16_t count;	
+//	count++;
+//	if(count > 40000) count = 0;
+//										if( count < 20000)
+//										{
+//											ref_control = 0.3f;
+//										}
+//										else
+//										{
+//											ref_control = 0.7f;
+//										}
 	
 	error = ref_control - current;
 	
