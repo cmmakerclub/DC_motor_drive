@@ -38,7 +38,7 @@
 #define sen_input 0.00732421875f   				//0-30amp
 
 #define Kp   6.25f
-#define Ki   0.0f
+#define Ki   0.2f
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -405,6 +405,11 @@ void sampling(void)
 {
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	
+	static uint16_t count;
+	
+	count++;
+	if(count > 40000) count = 0;
+	
 	
 	current = 3045.0f - ((float)RAW_adc[0]+(float)RAW_adc[1]+(float)RAW_adc[3]+(float)RAW_adc[4]+(float)RAW_adc[6]+(float)RAW_adc[7])*0.166666666667f;
 	ref_control = ((float)RAW_adc[2] +(float)RAW_adc[5] +(float)RAW_adc[8])*0.333333333333f;
@@ -412,21 +417,39 @@ void sampling(void)
 	current *= sen_amp;  				//map raw to amp
 	ref_control *= sen_input;
 	
+											if( count < 20000)
+											{
+												ref_control = 0.3f;
+											}
+											else
+											{
+												ref_control = 0.7f;
+											}
+	
 	error = ref_control - current;
 	
 	error_sum += error;
-	if (error_sum > 20.0f) error_sum = 20.0f;
-	if (error_sum < -20.0f) error_sum = -20.0f;
+	if (error_sum > 10000.0f) error_sum = 10000.0f;
+	if (error_sum < 0.0f) error_sum = 0.0f;
 	
 	output =  Kp*error + Ki*error_sum;
+	if (output < 0.0f) output = 0.0f;
 	
-	if(HAL_GPIO_ReadPin(ENABLE_GPIO_Port, ENABLE_Pin) == GPIO_PIN_SET)
+	
+	if(HAL_GPIO_ReadPin(ENABLE_GPIO_Port, ENABLE_Pin) == GPIO_PIN_RESET)
 	{
 		error_sum = 0;
 		output = 0;
 	}
 	
-//	output = -15;   
+	if(HAL_GPIO_ReadPin(ENABLE_GPIO_Port, ENABLE_Pin) == GPIO_PIN_RESET)
+	{
+		output = -output;
+	}
+	
+	
+	if (output > 25) output = 25;   
+	if (output < -25) output = -25;   
 	motor_drive(output)	;
 
 	
