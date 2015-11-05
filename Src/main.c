@@ -130,7 +130,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	
-		motor_drive(3);
+
 		
   while (1)
   {
@@ -410,9 +410,7 @@ void MX_GPIO_Init(void)
 void sampling(void)
 {
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-	
 
-	
 	
 	current = 3045.0f - ((float)RAW_adc[0]+(float)RAW_adc[1]+(float)RAW_adc[3]+(float)RAW_adc[4]+(float)RAW_adc[6]+(float)RAW_adc[7])*0.166666666667f;
 	ref_control = ((float)RAW_adc[2] +(float)RAW_adc[5] +(float)RAW_adc[8])*0.333333333333f;
@@ -453,9 +451,10 @@ void sampling(void)
 		output = -output;
 	}
 	
+//	if (output > 25) output = 25;   
+//	if (output < -25) output = -25;   
 	
-	if (output > 25) output = 25;   
-	if (output < -25) output = -25;   
+//	output = -30;
 	motor_drive(output)	;
 
 	
@@ -467,14 +466,14 @@ void motor_drive(float value)	// 0-100 input rank
 	static uint8_t status;
 	static float  value_prev;
 	
-	float _output = value * 23.0f;
-	
-	if (_output < 0) _output = -_output;
-	
 	if ((value > 0)!=(value_prev > 0)) status = 200;
+	
+	float _output = value * 23.0f;
 	
 	if ((value < 3)&&(value > -3)) _output = 0;
 	
+	if (_output < 0) _output = -_output;
+
 	if (_output > 2300) _output = 2300;
 	
 	if (status == 0)
@@ -482,26 +481,28 @@ void motor_drive(float value)	// 0-100 input rank
 		if (value > 0)
 		{
 			TIM3->CCR4 = 0;
-			TIM3->CCR2 = 0;
-			TIM3->CCR1 = 0;
+//			TIM3->CCR2 = 0;
+//			TIM3->CCR1 = 0;
 			TIM14->CCR1 = 0;
+			
 			TIM3->CNT = 0;
 			TIM14->CNT = 0;
 			
 			TIM3->CCR1 = _output;
-			TIM3->CCR2 = _output;
+			TIM3->CCR2 = 2300;					//  low side
 		}
 		else
 		{	
-			TIM3->CCR4 = 0;
+//			TIM3->CCR4 = 0;
 			TIM3->CCR2 = 0;
 			TIM3->CCR1 = 0;
-			TIM14->CCR1 = 0;
+//			TIM14->CCR1 = 0;
+			
 			TIM3->CNT = 0;
 			TIM14->CNT = 0;
 			
 			TIM3->CCR4 = _output;
-			TIM14->CCR1 = _output;
+			TIM14->CCR1 = 2300;					// 	low side
 		}
 	}
 	else
@@ -534,13 +535,14 @@ void assert_failed(uint8_t* file, uint32_t line)
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-	
-		TIM3->CNT = 0;
-		TIM14->CNT = 0;
+
 		TIM3->CCR4 = 0;
 		TIM3->CCR2 = 0;
 		TIM3->CCR1 = 0;
 		TIM14->CCR1 = 0;
+		
+		TIM3->CNT = 0;
+		TIM14->CNT = 0;
 	
   /* USER CODE END 6 */
 
