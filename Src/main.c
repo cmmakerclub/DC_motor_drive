@@ -391,7 +391,7 @@ void sampling(void)
 	
 	current *= sen_amp;  				//map raw to amp
 	ref_control *= sen_input;
-	
+	ref_control -= 1 ;
 //	static uint16_t count;	
 //	count++;
 //	if(count > 40000) count = 0;
@@ -406,18 +406,26 @@ void sampling(void)
 	
 	error = ref_control - current;
 	
-	error_sum += error;
-	if (error_sum > 10000.0f) error_sum = 10000.0f;
+//	error_sum += error;
+	
+	if (error > 0) 
+	{
+		error_sum += 2;
+	}else{
+		error_sum -= 2;
+	}
+	
+	if (error_sum > 2300.0f) error_sum = 2300.0f;
 	if (error_sum < 0.0f) error_sum = 0.0f;
 	
-	output =  Kp*error + Ki*error_sum;
-	if (output < 0.0f) output = 0.0f;
-	
+//	output =  Kp*error + Ki*error_sum;
+//	if (output < 0.0f) output = 0.0f;
+	output = error_sum;
 	
 	if(HAL_GPIO_ReadPin(ENABLE_GPIO_Port, ENABLE_Pin) == GPIO_PIN_RESET)
 	{
 		error_sum = 0;
-		output = 0;
+ 		output = 0;
 	}
 	
 	if(HAL_GPIO_ReadPin(DIR_GPIO_Port, DIR_Pin) == GPIO_PIN_SET)
@@ -488,6 +496,8 @@ void motor_drive(float value)	// 0-100 input rank
 		TIM14->CCR1 = 0;
 		TIM3->CNT = 0;
 		TIM14->CNT = 0;
+		
+		error_sum = 0;
 		
 		status--;
 	}
