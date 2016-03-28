@@ -383,15 +383,19 @@ void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void sampling(void)
 {
-	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+	//HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
 	
 	current = 3045.0f - ((float)RAW_adc[0]+(float)RAW_adc[1]+(float)RAW_adc[3]+(float)RAW_adc[4]+(float)RAW_adc[6]+(float)RAW_adc[7])*0.166666666667f;
 	ref_control = ((float)RAW_adc[2] +(float)RAW_adc[5] +(float)RAW_adc[8])*0.333333333333f;
 	
 	current *= sen_amp;  				//map raw to amp
+
 	ref_control *= sen_input;
 	ref_control -= 1 ;
+	
+	if (ref_control < 1) ref_control = 0;
+	
 //	static uint16_t count;	
 //	count++;
 //	if(count > 40000) count = 0;
@@ -406,22 +410,32 @@ void sampling(void)
 	
 	error = ref_control - current;
 	
+//	float percent_error = error/ref_control;
+//	if (percent_error < 0.05f || percent_error > -0.05f)
+//	{
+//		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+//	}else{
+//		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);		
+//	}
+		
+	
 //	error_sum += error;
+
+		if (error > 0) 
+		{
+			error_sum += 1;
+		}else{
+			error_sum -= 1;
+		}
+
 	
-	if (error > 0) 
-	{
-		error_sum += 2;
-	}else{
-		error_sum -= 2;
-	}
-	
-	if (error_sum > 2300.0f) error_sum = 2300.0f;
-	if (error_sum < 0.0f) error_sum = 0.0f;
+	if (error_sum > 100.0f)  error_sum =  100.0f;
+	if (error_sum < -100.0f) error_sum = -100.0f;
 	
 //	output =  Kp*error + Ki*error_sum;
 //	if (output < 0.0f) output = 0.0f;
 	output = error_sum;
-	
+
 	if(HAL_GPIO_ReadPin(ENABLE_GPIO_Port, ENABLE_Pin) == GPIO_PIN_RESET)
 	{
 		error_sum = 0;
@@ -440,26 +454,26 @@ void sampling(void)
 	motor_drive(output)	;
 
 	
-	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+	//HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 }
 
-void motor_drive(float value)	// 0-100 input rank
+void motor_drive(float value)	// -100 - 100 input rank
 {
 	static uint8_t status;
 	static float  value_prev;
 	
-	if ((value > 0)!=(value_prev > 0)) status = 200;
+//	if ((value > 0)!=(value_prev > 0)) status = 50;
 	
 	float _output = value * 23.0f;
 	
-	if ((value < 3)&&(value > -3)) _output = 0;
+	if ((value < 5)&&(value > -5)) _output = 0;
 	
 	if (_output < 0) _output = -_output;
 
 	if (_output > 2300) _output = 2300;
 	
-	if (status == 0)
-	{
+//	if (status == 0)
+//	{
 		if (value > 0)
 		{
 			TIM3->CCR4 = 0;
@@ -486,21 +500,21 @@ void motor_drive(float value)	// 0-100 input rank
 			TIM3->CCR4 = _output;
 			TIM14->CCR1 = 2300;					// 	low side
 		}
-	}
-	else
-	{		
+//	}
+//	else
+//	{		
 
-		TIM3->CCR4 = 0;
-		TIM3->CCR2 = 0;
-		TIM3->CCR1 = 0;
-		TIM14->CCR1 = 0;
-		TIM3->CNT = 0;
-		TIM14->CNT = 0;
-		
-		error_sum = 0;
-		
-		status--;
-	}
+//		TIM3->CCR4 = 0;
+//		TIM3->CCR2 = 0;
+//		TIM3->CCR1 = 0;
+//		TIM14->CCR1 = 0;
+//		TIM3->CNT = 0;
+//		TIM14->CNT = 0;
+//		
+//		error_sum = 0;
+//		
+//		status--;
+//	}
 	value_prev = value;
 }
 /* USER CODE END 4 */
